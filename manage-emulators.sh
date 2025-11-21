@@ -71,6 +71,13 @@ ensure_bucket() {
     scoop bucket add dorado      >/dev/null 2>&1 || true
 }
 
+ensure_7zip() {
+    if ! command -v 7z &> /dev/null; then
+        echo "[!] 7zip not found. Installing..."
+        scoop install 7zip
+    fi
+}
+
 ensure_json() {
     if [ ! -f "$JSON_FILE" ]; then
         echo "{}" > "$JSON_FILE"
@@ -159,12 +166,8 @@ install_github_release() {
     curl -L -o "$dest_dir/$filename" "$download_url"
     
     echo "   Extracting to $dest_dir..."
-    if command -v 7z >/dev/null 2>&1; then
-        7z x "$dest_dir/$filename" -o"$dest_dir" -y >/dev/null
-    else
-        echo "   [!] 7z not found. Please install 7zip (scoop install 7zip)."
-        return 1
-    fi
+    ensure_7zip
+    7z x "$dest_dir/$filename" -o"$dest_dir" -y >/dev/null
     
     # Cleanup
     rm "$dest_dir/$filename"
@@ -172,7 +175,10 @@ install_github_release() {
     # Create Symlink
     link_name=$(get_symlink_name "$app")
     echo "   → Linking $ROOT/$link_name -> $dest_dir"
-    ln -sfn "$dest_dir" "$ROOT/$link_name"
+    ln -sfn "$dest_dir" "$ROOT/$link_name" 2>/dev/null || {
+        echo "   Symlink failed; copying folder..."
+        cp -r "$dest_dir" "$ROOT/$link_name"
+    }
     
     echo "   ✓ Installed $app from GitHub"
 }
@@ -191,12 +197,8 @@ install_manual_url() {
     curl -L -o "$dest_dir/$filename" "$url"
     
     echo "   Extracting to $dest_dir..."
-    if command -v 7z >/dev/null 2>&1; then
-        7z x "$dest_dir/$filename" -o"$dest_dir" -y >/dev/null
-    else
-        echo "   [!] 7z not found. Please install 7zip (scoop install 7zip)."
-        return 1
-    fi
+    ensure_7zip
+    7z x "$dest_dir/$filename" -o"$dest_dir" -y >/dev/null
     
     # Cleanup
     rm "$dest_dir/$filename"
@@ -204,7 +206,10 @@ install_manual_url() {
     # Create Symlink
     link_name=$(get_symlink_name "$app")
     echo "   → Linking $ROOT/$link_name -> $dest_dir"
-    ln -sfn "$dest_dir" "$ROOT/$link_name"
+    ln -sfn "$dest_dir" "$ROOT/$link_name" 2>/dev/null || {
+        echo "   Symlink failed; copying folder..."
+        cp -r "$dest_dir" "$ROOT/$link_name"
+    }
     
     echo "   ✓ Installed $app from Direct Link"
 }
@@ -255,7 +260,10 @@ install_app() {
     if [ -d "$HOME/scoop/apps/$app/current" ]; then
         link_name=$(get_symlink_name "$app")
         echo "   → Linking $ROOT/$link_name -> Scoop Current"
-        ln -sfn "$HOME/scoop/apps/$app/current" "$ROOT/$link_name"
+        ln -sfn "$HOME/scoop/apps/$app/current" "$ROOT/$link_name" 2>/dev/null || {
+            echo "   Symlink failed; copying folder..."
+            cp -r "$HOME/scoop/apps/$app/current" "$ROOT/$link_name"
+        }
     fi
 }
 
@@ -297,7 +305,10 @@ install_optional() {
     if [ -d "$HOME/scoop/apps/$app/current" ]; then
         link_name=$(get_symlink_name "$app")
         echo "   → Linking $ROOT/$link_name -> Scoop Current"
-        ln -sfn "$HOME/scoop/apps/$app/current" "$ROOT/$link_name"
+        ln -sfn "$HOME/scoop/apps/$app/current" "$ROOT/$link_name" 2>/dev/null || {
+            echo "   Symlink failed; copying folder..."
+            cp -r "$HOME/scoop/apps/$app/current" "$ROOT/$link_name"
+        }
     fi
 }
 
