@@ -381,6 +381,6 @@ esac
 
 echo ""
 echo "========================================="
-echo "  ✓ pin_emulators.sh finished ($MODE)"
+echo "  ✓ manage_emulators.sh finished ($MODE)"
 echo "  → Log saved to: $LOGFILE"
 echo "========================================="
