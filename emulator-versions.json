@@ -1,3 +1,27 @@
 {
-  "retroarch": "1.22.1"
+  "retroarch": "1.22.1",
+  "snes9x": "2025-11-20",
+  "mgba": "0.10.5",
+  "lime3ds": "2119.1",
+  "azahar": "2123.3",
+  "dolphin": "2025-11-20",
+  "cemu": "2.6",
+  "melonds": "1.0",
+  "duckstation": "20251115-g3d6627c",
+  "pcsx2": "2.4.0",
+  "ppsspp": "1.19.3",
+  "rpcs3": "0.0.38-18367",
+  "xemu": "0.8.115",
+  "xenia-canary": "20251023061559-4644657",
+  "mame": "0.282",
+  "stella": "7.0",
+  "vita3k": "3832-6c4727d",
+  "rmg": "0.8.8",
+  "mesen": "2.1.1",
+  "flycast": "2.5",
+  "supermodel": "2025-11-20",
+  "ryujinx": "1.3.3",
+  "ares": "146",
+  "eden": "v0.0.4-rc2",
+  "sudachi": "1.0.15"
 }

@@ -8,7 +8,7 @@
 # ---------------------------------------
 
 ROOT="/c/emulation/emulators"
-LOGDIR="$ROOT/logs"
+LOGDIR="$ROOT/.emulator-install/logs"
 mkdir -p "$LOGDIR"
 
 LOGFILE="$LOGDIR/pin_$(date +%Y%m%d_%H%M%S).log"
@@ -17,36 +17,34 @@ echo "[*] Logging to: $LOGFILE"
 exec > >(tee -a "$LOGFILE") 2>&1
 
 CORE_EMULATORS=(
-  retroarch
-  snes9x
-  mgba
-  lime3ds
-  dolphin
-  cemu
-  melonds
-  duckstation
-  pcsx2
-  ppsspp
-  rpcs3
-  xemu
-  xenia-canary
-  mame
-  stella
-  vita3k
-  bigpemu
-  rmg
-  mesen
-  flycast
-  supermodel
-  ryujinx
-  ares
+  retroarch       # Multi-System Frontend
+  snes9x          # Super Nintendo (SNES)
+  mgba            # Game Boy Advance (GBA)
+  azahar          # Nintendo 3DS (formerly Citra/Lime3DS)
+  dolphin         # GameCube / Wii
+  cemu            # Wii U
+  melonds         # Nintendo DS
+  duckstation     # PlayStation 1 (PSX)
+  pcsx2           # PlayStation 2 (PS2)
+  ppsspp          # PlayStation Portable (PSP)
+  rpcs3           # PlayStation 3 (PS3)
+  xemu            # Original Xbox
+  xenia-canary    # Xbox 360
+  mame            # Arcade
+  stella          # Atari 2600
+  vita3k          # PlayStation Vita
+  bigpemu         # Atari Jaguar
+  rmg             # Nintendo 64 (Rosalie's Mupen GUI)
+  mesen           # NES / SNES / PC Engine / Game Boy
+  flycast         # Dreamcast / Naomi
+  supermodel      # Sega Model 3 Arcade
+  ryujinx         # Nintendo Switch
+  ares            # Multi-System (High Accuracy)
 )
 
 SWITCH_FORKS=(
-  eden
-  citron
-  sudachi
-  suyu
+  eden            # Switch Fork
+  sudachi         # Switch Fork
 )
 
 ALL_EMULATORS=("${CORE_EMULATORS[@]}" "${SWITCH_FORKS[@]}")
@@ -98,6 +96,119 @@ get_installed_version() {
     scoop list "$app" 2>/dev/null | grep -E "^$app\s+" | awk '{print $2}' | head -n 1
 }
 
+get_symlink_name() {
+    local app=$1
+    case "$app" in
+        retroarch)    echo "Multi_RetroArch" ;;
+        snes9x)       echo "Nintendo_SNES_Snes9x" ;;
+        mgba)         echo "Nintendo_GBA_mGBA" ;;
+        azahar)       echo "Nintendo_3DS_Azahar" ;;
+        dolphin)      echo "Nintendo_GameCube_Wii_Dolphin" ;;
+        cemu)         echo "Nintendo_WiiU_Cemu" ;;
+        melonds)      echo "Nintendo_DS_melonDS" ;;
+        duckstation)  echo "Sony_PS1_DuckStation" ;;
+        pcsx2)        echo "Sony_PS2_PCSX2" ;;
+        ppsspp)       echo "Sony_PSP_PPSSPP" ;;
+        rpcs3)        echo "Sony_PS3_RPCS3" ;;
+        xemu)         echo "Microsoft_Xbox_Xemu" ;;
+        xenia-canary) echo "Microsoft_Xbox360_Xenia" ;;
+        mame)         echo "Arcade_MAME" ;;
+        stella)       echo "Atari_2600_Stella" ;;
+        vita3k)       echo "Sony_Vita_Vita3K" ;;
+        bigpemu)      echo "Atari_Jaguar_BigPEmu" ;;
+        rmg)          echo "Nintendo_N64_RMG" ;;
+        mesen)        echo "Multi_NES_SNES_Mesen" ;;
+        flycast)      echo "Sega_Dreamcast_Flycast" ;;
+        supermodel)   echo "Sega_Model3_Supermodel" ;;
+        ryujinx)      echo "Nintendo_Switch_Ryujinx" ;;
+        ares)         echo "Multi_Ares" ;;
+        eden)         echo "Nintendo_Switch_Eden" ;;
+        citron)       echo "Nintendo_Switch_Citron" ;;
+        sudachi)      echo "Nintendo_Switch_Sudachi" ;;
+        suyu)         echo "Nintendo_Switch_Suyu" ;;
+        *)            echo "$app" ;;
+    esac
+}
+
+# ---------------------------------------
+# Fallback Download Functions
+# ---------------------------------------
+
+install_github_release() {
+    local app="$1"
+    local repo="$2"
+    local filter="$3" # e.g. "win64"
+    
+    echo "   ! Scoop install failed. Attempting GitHub Release download..."
+    echo "   Repo: $repo"
+    
+    # Get latest release data
+    local api_url="https://api.github.com/repos/$repo/releases/latest"
+    local download_url=$(curl -s "$api_url" | jq -r ".assets[] | select(.name | test(\"$filter\"; \"i\")) | .browser_download_url" | head -n 1)
+    
+    if [ -z "$download_url" ] || [ "$download_url" == "null" ]; then
+        echo "   [!] Could not find a release asset matching '$filter' in $repo"
+        return 1
+    fi
+    
+    echo "   Downloading: $download_url"
+    local filename=$(basename "$download_url")
+    local dest_dir="$ROOT/$app"
+    
+    mkdir -p "$dest_dir"
+    curl -L -o "$dest_dir/$filename" "$download_url"
+    
+    echo "   Extracting to $dest_dir..."
+    if command -v 7z >/dev/null 2>&1; then
+        7z x "$dest_dir/$filename" -o"$dest_dir" -y >/dev/null
+    else
+        echo "   [!] 7z not found. Please install 7zip (scoop install 7zip)."
+        return 1
+    fi
+    
+    # Cleanup
+    rm "$dest_dir/$filename"
+    
+    # Create Symlink
+    link_name=$(get_symlink_name "$app")
+    echo "   → Linking $ROOT/$link_name -> $dest_dir"
+    ln -sfn "$dest_dir" "$ROOT/$link_name"
+    
+    echo "   ✓ Installed $app from GitHub"
+}
+
+install_manual_url() {
+    local app="$1"
+    local url="$2"
+    
+    echo "   ! Scoop install failed. Attempting Direct Download..."
+    echo "   URL: $url"
+    
+    local filename=$(basename "$url")
+    local dest_dir="$ROOT/$app"
+    
+    mkdir -p "$dest_dir"
+    curl -L -o "$dest_dir/$filename" "$url"
+    
+    echo "   Extracting to $dest_dir..."
+    if command -v 7z >/dev/null 2>&1; then
+        7z x "$dest_dir/$filename" -o"$dest_dir" -y >/dev/null
+    else
+        echo "   [!] 7z not found. Please install 7zip (scoop install 7zip)."
+        return 1
+    fi
+    
+    # Cleanup
+    rm "$dest_dir/$filename"
+    
+    # Create Symlink
+    link_name=$(get_symlink_name "$app")
+    echo "   → Linking $ROOT/$link_name -> $dest_dir"
+    ln -sfn "$dest_dir" "$ROOT/$link_name"
+    
+    echo "   ✓ Installed $app from Direct Link"
+}
+
 install_app() {
     local app="$1"
     echo ""
@@ -117,13 +228,13 @@ install_app() {
             echo "   ✓ Already on version $pinned_ver"
         else
             echo "   ! Installing specific version $pinned_ver..."
-            scoop install "$app@$pinned_ver" --dir "$ROOT/$app"
+            scoop install "$app@$pinned_ver"
         fi
     else
         echo "   No pin found. Checking installation..."
         if [ -z "$current_ver" ]; then
             echo "   Installing latest $app..."
-            scoop install "$app" --dir "$ROOT/$app"
+            scoop install "$app"
             # Update current_ver after install
             current_ver=$(get_installed_version "$app")
         fi
@@ -131,8 +242,20 @@ install_app() {
         if [ -n "$current_ver" ]; then
             set_pinned_version "$app" "$current_ver"
         else
-            echo "   [!] Could not determine version for $app (Install failed?)"
+            # Fallback for specific apps
+            if [ "$app" == "bigpemu" ]; then
+                install_manual_url "bigpemu" "https://www.richwhitehouse.com/jaguar/builds/BigPEmu_v119.zip"
+            else
+                echo "   [!] Could not determine version for $app (Install failed?)"
+            fi
         fi
+    fi
+
+    # Create Symlink
+    if [ -d "$HOME/scoop/apps/$app/current" ]; then
+        link_name=$(get_symlink_name "$app")
+        echo "   → Linking $ROOT/$link_name -> Scoop Current"
+        ln -sfn "$HOME/scoop/apps/$app/current" "$ROOT/$link_name"
     fi
 }
 
@@ -153,13 +276,13 @@ install_optional() {
             echo "   ✓ Already on version $pinned_ver"
         else
             echo "   ! Installing specific version $pinned_ver..."
-            scoop install "$app@$pinned_ver" --dir "$ROOT/$app"
+            scoop install "$app@$pinned_ver"
         fi
     else
         echo "   No pin found. Checking installation..."
         if [ -z "$current_ver" ]; then
             echo "   Installing latest $app..."
-            scoop install "$app" --dir "$ROOT/$app"
+            scoop install "$app"
             current_ver=$(get_installed_version "$app")
         fi
         
@@ -168,6 +291,13 @@ install_optional() {
         else
             echo "   [!] Could not determine version for $app (Install failed?)"
         fi
+    fi
+
+    # Create Symlink
+    if [ -d "$HOME/scoop/apps/$app/current" ]; then
+        link_name=$(get_symlink_name "$app")
+        echo "   → Linking $ROOT/$link_name -> Scoop Current"
+        ln -sfn "$HOME/scoop/apps/$app/current" "$ROOT/$link_name"
     fi
 }
 
